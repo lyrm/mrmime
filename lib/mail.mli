@@ -20,6 +20,15 @@ type 'a t =
   | Leaf of 'a elt
   | Multipart of 'a t option list elt
   | Message of 'a t elt
+      (** Describe the structure of a mail as a tree:
+
+ - Leaf: basic content of a mail. Text, image or any other discrete
+   content type;
+
+ - Multipart: mail with multiple bodies (one body for each
+   content-type. text/html and text/plain for example).
+
+ - Message: because an email can contain another email *)
 
 val heavy_octet : string option -> Header.t -> string Angstrom.t
 (** {i Heavy} parser of a body - it will stores bodies into [string]. *)

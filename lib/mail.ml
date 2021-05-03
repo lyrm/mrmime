@@ -5,6 +5,19 @@ type 'a t =
   | Multipart of 'a t option list elt
   | Message of 'a t elt
 
+(* [parser ~write_line eob] takes inputs until it reaches the string
+   [eob]. [write_line] is called on every chunks that end with the
+   first character of [eob] and is basically used to extract the
+   parsed inputs.
+
+  For example, it could be :
+
+  let write_line x =
+      Buffer.add_string buf x;
+      Buffer.add_string buf end_of_line
+
+  End_of_body
+ *)
 let parser ~write_line end_of_body =
   let open Angstrom in
   let check_end_of_body =
@@ -32,6 +45,9 @@ let parser ~write_line end_of_body =
   Bytes.blit_string chunk 0 chunk' 0 (String.length chunk);
   check_end_of_body >>= choose chunk'
 
+(* [with_buffer end_of_body] parses an input until it reaches
+   [end_of_body], stocks it chunk by chunk in a buffer and converts
+   the entire input into a string.  *)
 let with_buffer ?(end_of_line = "\n") end_of_body =
   let buf = Buffer.create 0x100 in
   let write_line x =
@@ -42,6 +58,9 @@ let with_buffer ?(end_of_line = "\n") end_of_body =
   let open Angstrom in
   parser ~write_line end_of_body >>| fun () -> Buffer.contents buf
 
+(* [with_emitter ~emitter eof] parses an input until it reaches
+   [end_of_body], and calls [emitter] with each chunk, ended by the
+   [end_of_line] optional input.  *)
 let with_emitter ?(end_of_line = "\n") ~emitter end_of_body =
   let write_line x = emitter (Some (x ^ end_of_line)) in
   parser ~write_line end_of_body

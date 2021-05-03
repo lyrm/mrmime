@@ -1,6 +1,6 @@
 # Mr. MIME (Multipurpose Internet Mail Extensions)
 
-`mrmime` is a library to parse and generate mail according several RFCs:
+`mrmime` is a library to parse and generate mail according to several RFCs:
 - [RFC822][rfc822]: Standard For The Format of ARPA Internet Text Messages
 - [RFC2822][rfc2822]: Internet Message Format
 - [RFC5321][rfc5321]: Simple Mail Transfer Protocol
@@ -11,41 +11,37 @@
 - [RFC2049][rfc2049]: MIME Part Five: Conformance Criteria and Examples
 - [RFC6532][rfc6532]: Internationalized Email Headers
 
-`mrmime` was made with [`angstrom`][angstrom] to be able to parse mails and try
-to do the _best-effort_. From a bunch of mails (2 billions), `mrmime` is able to
-parse all of them - however, results can diverge from what you expect.
+To parse mails, `mrmime` uses [`angstrom`][angstrom] and does it best
+according to rfc recommendations. It has be tested over more than 2
+billions mails and is able to parse all of them. However,
+results are not always what was expected due to ?.
 
-In other side, `mrmime` is able to generate valid mail from an OCaml description.
-Generation follows some rules:
-- stream produced emits only line per line
-- we do the _best-effort_ to limit lines by 78 characters
-- we follows [RFC6532][rfc6532] and emit UTF-8 mail
+`mrmime` also enables to generate valid mails from an OCaml
+description. Generation abides by the following rules:
+- produced streams emit lines one by one
+- it does its best to limit lines to 78 characters
+- generated mails follow [RFC6532][rfc6532] and use UTF-8 encoding
 
 ## How to parse a mail?
 
-We have different ways to parse a mail and it's depends of what you want. In
-fact, in some ways, you should be interesting only by the header part. In some
-others cases, you probably want bodies. We decide to separate these tasks into 2
-API (which differ) to fit under some constraints.
+An mail can be parsed in two different ways depending on what parts of
+the mail you are interesting in. To match constraints and
+functionnalities we wanted, each parser has its own API.
 
-For example, if you want to extract only the header, we probably want to take
-care about memory consumption - if you want, for example, to implement a SMTP
-server and where only the header is interesting.
+### Parsing only the header part
 
-An _stream API_ is provided in this case and from this, we are able to implement
-a DKIM checker which needs only one-pass to verify your mail.
+For many purposes, it is only necessary to parse the header part of a
+mail. These cases require the `Hd` sub-module.
 
-In other side, if you want to extract bodies of your mail, parser provided is
-not a _stream_ parser where we need to extract bodies from a _multipart_ mail.
-An explanation of how to use it is given in this document.
+Typical use cases include SMTP servers and usually need to have a low
+memory consumption. That's why an _stream API_ is provided.
 
-### Parse only the header part
+An complete example of a DKIM implementation using this `Hd`
+sub-module is available on the [`ocaml-dkim`][ocaml-dkim] project. The
+following code lines are extracted (and simplified) from it and shows
+how the _stream API_ enables to implement a DKIM checker that only
+needs one pass to verify a mail.
 
-For many purposes, we are mostly interesting to parse only the header part of a
-mail. In this case, `Hd` sub-module should be what you want.
-
-A _complex_ example of `Hd` is available on the [`ocaml-dkim`][ocaml-dkim]
-project which wants to extract `DKIM` signature from header.
 
 ```ocaml
 let dkim_signature = Mrmime.Field_name.v "DKIM-Signature"
@@ -72,41 +68,43 @@ let extract_dkim () =
   decode ()
 ```
 
-This little snippet will parse a mail **which is encoded with CRLF end-of-line**
+This little snippet parses a mail **which is encoded with CRLF end-of-line**
 from `stdin` (so you should map your mail with this newline convention). When it
 reachs a `DKIM` field, it prints a _well-parsed_ value of it (in our case, an
 _unstructured_ value). [`Other`] corresponds to other fields - `DKIM` signature
 can appear here where we failed to parse value as an _unstructured_ value.
 
-### Parse entirely a mail
+### Parsing a mail entirely
 
-Of course, the initial goal of `mrmime` is to parse an entire mail. In this
-case, you should use the `Mail` sub-module which provides [`angstrom`][angstrom]
-parser.
+For some cases, it may be necessary to also extract the bodies of a
+mail and parse the entire mail. This is the initial goal of
+`mrmime`. In this case, `Mail` is the appropriate sub-module and
+provides an [`angstrom`][angstrom] non-stream parser.
 
-Bodies can be weight and if you want to store them by yourself, we provide an
-API which expects consumers to consume bodies (and store them, for example, into
-UNIX files).
+Bodies can be weight and if you want to store them by yourself, we
+provide an API which expects consumers to consume bodies (and store
+them, for example, into UNIX files).
 
-A _complex_ example is available on [`ptt`][ptt] to extract bodies and save them into
-UNIX files. For this we use:
+A _complex_ example is available on [`ptt`][ptt] to extract bodies and
+save them into UNIX files. For this, we use the function `stream` to
+parse the mail:
 
 ```ocaml
 val stream : emitters:(Header.t -> (string option -> unit) * 'id) -> (Header.t * 'id t) Angstrom.t
 ```
 
-Which will call `emitters` at any part of your mail. _parser_ will decode
-properly part (according `Content-Transfer-Encoding`) and give you inputs into
-your consumer.
+which calls `emitters` for every parts of your mail. The parser then
+decodes properly each of them accordingly to
+`Content-Transfer-Encoding` and returns you inputs into your consumer.
 
 ## How to emit a mail?
 
-`mrmime` is able to generate a mail from an OCaml description of it. You have
+`mrmime` is able to generate a mail from an OCaml description of it. There are
 several ways to craft informations like address or `Content-Type` field for a
 specific part.
 
 Many sub-modules of `mrmime` provide a way to construct an information like a
-subject needed for you mail or recipients of it. For example, the sub-module
+subject needed for your mail or recipients of it. For example, the sub-module
 `Mailbox` provides an easy way to construct an address:
 
 ```ocaml
@@ -115,8 +113,8 @@ let romain_calascibetta =
   Local.[ w "romain"; w "calascibetta" ] @ Domain.(domain, [ a "x25519"; a "net" ])
 ```
 
-Documentation was done to help you to construct many of these values. Of course,
-`Header` will be the module to construct an header:
+Documentation was done to help you to construct many of these values. Obviously,
+`Header` is the module to construct headers:
 
 ```ocaml
 let header =
@@ -170,10 +168,10 @@ Of course, feedback is expected to improve it. So you can use it, but you should
 not expect an industrial quality - I mean, not yet. So play with it, and enjoy
 your hacking!
 
-[rfc822]: https://tools.ietf.org/html/rfc822 
-[rfc2822]: https://tools.ietf.org/html/rfc2822 
+[rfc822]: https://tools.ietf.org/html/rfc822
+[rfc2822]: https://tools.ietf.org/html/rfc2822
 [rfc5321]: https://tools.ietf.org/html/rfc5321
-[rfc5322]: https://tools.ietf.org/html/rfc5322 
+[rfc5322]: https://tools.ietf.org/html/rfc5322
 [rfc2045]: https://tools.ietf.org/html/rfc2045
 [rfc2046]: https://tools.ietf.org/html/rfc2046
 [rfc2047]: https://tools.ietf.org/html/rfc2047

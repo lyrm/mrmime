@@ -105,6 +105,9 @@ let epilogue parent =
   | Some boundary -> discard_all_to_delimiter boundary
   | None -> skip_while (fun _ -> true)
 
+(* [multipart_body boundary body] extracts every bodies of a multipart
+   mail. Following RFC 2046, each body is separated by a boundary with
+   the identifier [boundary].  *)
 let multipart_body ?parent boundary body =
   option () (preambule boundary) (* see [preambule]. *)
   *> dash_boundary boundary
