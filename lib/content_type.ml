@@ -612,6 +612,8 @@ module Encoder = struct
     | `Iana_token v -> string ppf v
     | `X_token v -> using (fun v -> "X-" ^ v) string ppf v
 
+  let cut : type a. (a, a) order = break ~indent:1 ~len:0
+
   let value =
     using
       (function `Token x -> `Atom x | `String x -> `String x)

@@ -76,6 +76,15 @@ module Encoder = struct
     | `Atom x -> eval ppf atom x
     | `String x -> eval ppf str (escape_string x)
 
+  let cut : type a. (a, a) order = break ~indent:1 ~len:0
+  (* XXX(dinosaure): we must ensure that a break insert (if we really apply
+   * it) a space at the beginning of the new line! [Prettym.cut] does not do
+   * that, it only gives the opportunity to break a new line without indentation.
+   *
+   * It safe to use [Prettym.cut] only inside a [tbox] in this context - to not 
+   * really break the mailbox. Note that such point is due to the release of
+   * [prettym.0.0.1] which slightly change the semantic of [fws] and [cut]. *)
+
   let dot = ((fun ppf () -> eval ppf [ cut; char $ '.'; cut ]), ())
   let comma = ((fun ppf () -> eval ppf [ cut; char $ ','; cut ]), ())
   let local ppf lst = eval ppf [ box; !!(list ~sep:dot word); close ] lst
@@ -142,7 +151,7 @@ module Encoder = struct
           name t.Emile.local x
     | None, (x, []) ->
         eval ppf
-          [ box; !!local; cut; char $ '@'; cut; !!domain; close ]
+          [ !!local; cut; char $ '@'; cut; !!domain; ]
           t.Emile.local x
     | name, (x, r) ->
         let domains ppf lst =
