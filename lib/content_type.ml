@@ -122,7 +122,8 @@ module Subtype = struct
     | database ->
         if Iana.Set.mem (String.lowercase_ascii token) database then
           Ok (`Iana_token token)
-        else Rresult.R.error_msgf "Subtype %S does not exist" token
+        else
+          Rresult.R.error_msgf "Subtype %S does not exist (type: %s)" token ty
     | exception Not_found -> Rresult.R.error_msgf "Type %S does not exist" ty
 
   let iana_exn ty token =
@@ -612,7 +613,7 @@ module Encoder = struct
     | `Iana_token v -> string ppf v
     | `X_token v -> using (fun v -> "X-" ^ v) string ppf v
 
-  let cut : type a. (a, a) order = break ~indent:1 ~len:0
+  let cut : type a. unit -> (a, a) order = fun () -> break ~indent:1 ~len:0
 
   let value =
     using
@@ -620,7 +621,7 @@ module Encoder = struct
       Mailbox.Encoder.word
 
   let parameter ppf (key, v) =
-    eval ppf [ box; !!string; cut; char $ '='; cut; !!value; close ] key v
+    eval ppf [ box; !!string; cut (); char $ '='; cut (); !!value; close ] key v
 
   let parameters ppf parameters =
     let sep ppf () = eval ppf [ char $ ';'; fws ] in
@@ -630,13 +631,13 @@ module Encoder = struct
     match t.parameters with
     | [] ->
         eval ppf
-          [ bbox; !!ty; cut; char $ '/'; cut; !!subty; close ]
+          [ bbox; !!ty; cut (); char $ '/'; cut (); !!subty; close ]
           t.ty t.subty
     | _ ->
         eval ppf
           [
-            bbox; !!ty; cut; char $ '/'; cut; !!subty; cut; char $ ';'; fws;
-            !!parameters; close;
+            bbox; !!ty; cut (); char $ '/'; cut (); !!subty; cut (); char $ ';';
+            fws; !!parameters; close;
           ]
           t.ty t.subty t.parameters
 end

@@ -16,7 +16,7 @@ build: [
 
 depends: [
   "ocaml"            {>= "4.08.0"}
-  "dune"             {>= "1.2"}
+  "dune"             {>= "2.7"}
   "rresult"
   "fmt"
   "ke"               {>= "0.4"}
@@ -36,4 +36,5 @@ depends: [
   "hxd"              {with-test}
   "alcotest"         {with-test}
   "jsonm"            {with-test}
+  "crowbar"          {with-test}
 ]
