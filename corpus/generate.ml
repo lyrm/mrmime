@@ -1,51 +1,8 @@
-module Generate = Fuzz.Make (Fortuna)
 
-let rec decode_string str decoder =
-  let open Mrmime in
-  match Hd.decode decoder with
-  | `End _ -> `Ok 0
-  | `Field _v -> decode_string str decoder
-  | `Malformed _err -> `Error (false, "Invalid generated email.")
-  | `Await ->
-      Hd.src decoder str 0 (String.length str);
-      decode_string str decoder
-
-let parsers =
-  let open Mrmime in
-  let unstructured = Field.(Witness Unstructured) in
-  let open Field_name in
-  Map.empty
-  |> Map.add date unstructured
-  |> Map.add from unstructured
-  |> Map.add sender unstructured
-  |> Map.add reply_to unstructured
-  |> Map.add (v "To") unstructured
-  |> Map.add cc unstructured
-  |> Map.add bcc unstructured
-  |> Map.add subject unstructured
-  |> Map.add message_id unstructured
-  |> Map.add comments unstructured
-  |> Map.add content_type unstructured
-  |> Map.add content_encoding unstructured
-
-let generate seed dst =
-  let g = Mirage_crypto_rng.Fortuna.create () in
-  Mirage_crypto_rng.Fortuna.reseed ~g (Cstruct.of_string seed);
-  assert (Mirage_crypto_rng.Fortuna.seeded ~g);
-  let hdr = Generate.header g in
-  let str = Prettym.to_string Mrmime.Header.Encoder.header hdr in
-  let decoder = Mrmime.Hd.decoder parsers in
-  let ret = decode_string (str ^ "\r\n") decoder in
-  let oc, oc_close =
-    match dst with
-    | `Standard -> (stdout, ignore)
-    | `Filename filename ->
-        let oc = open_out (Fpath.to_string filename) in
-        (oc, close_out)
-  in
-  output_string oc str;
-  oc_close oc;
-  ret
+let generate seed fuzzer dst  =
+  match fuzzer with
+  | `Fortuna -> Generate_fortuna.generate seed dst
+  | `Crowbar -> Generate_crowbar.generate dst
 
 open Cmdliner
 
@@ -64,8 +21,24 @@ let filename =
   in
   Arg.conv (parser, pp)
 
+let fuzzer =
+  let available = [ ("fortuna", `Fortuna); ("crowbar", `Crowbar) ] in
+  let kind = String.concat " or " (List.map (fun (n, _) -> n) available) in
+  let kind_of_string str = List.assoc_opt str available in
+  let pars = Arg.parser_of_kind_of_string ~kind kind_of_string in
+  let printer fmt v =
+    let str = fst (List.find (fun (_, v') -> v = v') available) in
+    Format.fprintf fmt "%s" str
+  in
+  let doc = "Fuzzer uses to randomly generate values. Value can be fortuna \
+             (default value) or crowbar. " in
+  let fuzzer_conv = Arg.conv ~docv:"FUZZER" (pars, printer) in
+  Arg.(value
+       & opt fuzzer_conv `Fortuna
+       & info [ "f"; "fuzzer" ] ~doc)
+
 let seed =
-  let doc = "Fortuna seed." in
+  let doc = "Fortuna seed. Has no use if fuzzer value is set to [crowbar]." in
   Arg.(required & opt (some base64) None & info [ "s"; "seed" ] ~doc)
 
 let output = Arg.(value & pos ~rev:true 0 filename `Standard & info [])
@@ -80,6 +53,6 @@ let cmd =
          and the $(i,base64) given seed.";
     ]
   in
-  (Term.(ret (const generate $ seed $ output)), Term.info "generate" ~doc ~man)
+  (Term.(ret (const generate $ seed $ fuzzer $ output )), Term.info "generate" ~doc ~man)
 
 let () = Term.(exit_status @@ eval cmd)
